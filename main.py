@@ -13,6 +13,15 @@ import torchvision
 from torchvision import models, datasets, transforms
 print(torch.__version__, torchvision.__version__)
 
+import argparse
+
+parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
+parser.add_argument('--index', type=int, default="25" 
+                    help='the index for leaking images on CIFAR.')
+parser.add_argument('--image', type=str,default=""
+                    help='the path to customized image.')
+args = parser.parse_args()
+
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"
@@ -22,8 +31,14 @@ dst = datasets.CIFAR100("~/.torch", download=True)
 tp = transforms.ToTensor()
 tt = transforms.ToPILImage()
 
-img_index = 25
+img_index = args.index
 gt_data = tp(dst[img_index][0]).to(device)
+
+if len(args.image) > 1:
+    gt_data = Image.open(args.image)
+    gt_data = tp(gt_data).to(device)
+
+
 gt_data = gt_data.view(1, *gt_data.size())
 gt_label = torch.Tensor([dst[img_index][1]]).long().to(device)
 gt_label = gt_label.view(1, )

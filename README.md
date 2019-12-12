@@ -1,5 +1,7 @@
 # Deep Leakage From Gradients [[arXiv]](https://arxiv.org/abs/1906.08935) [[Webside]](https://dlg.mit.edu) 
 
+
+
 ```
 @inproceedings{zhu19deep,
   title={Deep Leakage from Gradients},
@@ -65,9 +67,22 @@ To run the code, following libraies are required
 
 # Code
 
-* If you do not have GPU mahcines, We provide [Google Colab](https://colab.research.google.com/gist/Lyken17/91b81526a8245a028d4f85ccc9191884/deep-leakage-from-gradients.ipynb) to quickly reproduce our results. 
-* If you have GPU servers and would like to run your locally, `python main.py` provides the same functionality.
+<!-- * If you do not have GPU mahcines, We provide [Google Colab](https://colab.research.google.com/gist/Lyken17/91b81526a8245a028d4f85ccc9191884/deep-leakage-from-gradients.ipynb) to quickly reproduce our results. 
+* If you have GPU servers and would like to run your locally, `python main.py` provides the same functionality. -->
 
+ <p align="center">Note: We provide 
+    <a href="https://colab.research.google.com/gist/Lyken17/91b81526a8245a028d4f85ccc9191884/deep-leakage-from-gradients.ipynb" target="_parent"><img src="https://camo.githubusercontent.com/52feade06f2fecbf006889a904d221e6a730c194/68747470733a2f2f636f6c61622e72657365617263682e676f6f676c652e636f6d2f6173736574732f636f6c61622d62616467652e737667" alt="Open In Colab" data-canonical-src="https://colab.research.google.com/assets/colab-badge.svg"></a>
+    for quick reproducement!
+</p>
+
+```
+# Single image on CIFAR
+python main.py --index 25
+
+# Deep Leakage on your own Image
+python main.py --image yours.jpg
+```
+  
 # Deep Leakage on Batched Images
 
 <p align="center">
