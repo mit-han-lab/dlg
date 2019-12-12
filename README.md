@@ -89,7 +89,7 @@ python main.py --image yours.jpg
     <img src="assets/out.gif" width="80%" />
 </p>
 
-# Deep Leakage on Lanuage Model
+# Deep Leakage on Language Model
 
 <p align="center">
     <img src="assets/nlp_results.png" width="80%" />
