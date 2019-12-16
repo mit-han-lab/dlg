@@ -6,6 +6,12 @@ import torchvision
 from torchvision import models, datasets, transforms
 
 
+def weights_init(m):
+    if hasattr(m, "weight"):
+        m.weight.data.uniform_(-0.5, 0.5)
+    if hasattr(m, "bias"):
+        m.bias.data.uniform_(-0.5, 0.5)
+        
 class LeNet(nn.Module):
     def __init__(self):
         super(LeNet, self).__init__()

@@ -45,9 +45,9 @@ gt_label = gt_label.view(1, )
 
 plt.imshow(tt(gt_data[0].cpu()))
 
-from model.vision import LeNet
+from models.vision import LeNet, weights_init
 net = LeNet().to(device)
-    
+
 net.apply(weights_init)
 criterion = nn.CrossEntropyLoss()
 
