@@ -23,13 +23,13 @@ Gradients exchaging is popular used in modern multi-node learning systems. Peopl
 
 ## Overview
 
-We release the PyTorch code of [Deep Leakage from Gradients](https://arxiv.org/abs/1906.08935).
+The core algorithm is to *match the gradients* between *dummy data* and *real data*.
 
 <p align="center">
     <img src="assets/method.jpg" width="80%" />
 </p>
 
-The core algorithm is to *match the gradients* between *dummy data* and *real data*. It can be implemented in **less than 20 lines**!
+It can be implemented in **less than 20 lines** with PyTorch!
 
 
 ```python
