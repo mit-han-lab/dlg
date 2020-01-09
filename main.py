@@ -17,9 +17,9 @@ print(torch.__version__, torchvision.__version__)
 from utils import label_to_onehot, cross_entropy_for_onehot
 
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
-parser.add_argument('--index', type=int, default="25" 
+parser.add_argument('--index', type=int, default="25",
                     help='the index for leaking images on CIFAR.')
-parser.add_argument('--image', type=str,default=""
+parser.add_argument('--image', type=str,default="",
                     help='the path to customized image.')
 args = parser.parse_args()
 
