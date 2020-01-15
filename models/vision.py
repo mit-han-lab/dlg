@@ -25,7 +25,7 @@ class LeNet(nn.Module):
             act(),
         )
         self.fc = nn.Sequential(
-            nn.Linear(768, 1000)
+            nn.Linear(768, 100)
         )
         
     def forward(self, x):

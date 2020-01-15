@@ -50,6 +50,9 @@ plt.imshow(tt(gt_data[0].cpu()))
 from models.vision import LeNet, weights_init
 net = LeNet().to(device)
 
+
+torch.manual_seed(1234)
+
 net.apply(weights_init)
 criterion = cross_entropy_for_onehot
 
@@ -99,3 +102,4 @@ for i in range(30):
     plt.title("iter=%d" % (i * 10))
     plt.axis('off')
 
+plt.show()
