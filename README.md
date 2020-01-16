@@ -1,7 +1,5 @@
 # Deep Leakage From Gradients [[arXiv]](https://arxiv.org/abs/1906.08935) [[Webside]](https://dlg.mit.edu) 
 
-
-
 ```
 @inproceedings{zhu19deep,
   title={Deep Leakage from Gradients},
