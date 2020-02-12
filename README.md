@@ -98,4 +98,4 @@ python main.py --image yours.jpg
 
 # License
 
-This repository is released under the MIT license. See LICENSE for additional details.
+This repository is released under the MIT license. See [LICENSE](LICENSE) for additional details.
