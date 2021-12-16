@@ -7,6 +7,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 import torch
+from torch import optim
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
@@ -22,7 +23,7 @@ parser.add_argument('--index', type=int, default="25",
 parser.add_argument('--image', type=str,default="",
                     help='the path to customized image.')
 args = parser.parse_args()
-num_of_iterations = 300
+num_of_iterations = 500
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"
@@ -48,23 +49,45 @@ def test_image(img_index):
     plt.imshow(tt(gt_data[0].cpu()))
 
     from models.vision import LeNet, weights_init
-    net = LeNet().to(device)
+    model = LeNet().to(device)
 
 
     torch.manual_seed(1234)
 
-    net.apply(weights_init)
+    model.apply(weights_init)
     criterion = cross_entropy_for_onehot
+    #################### Train ####################
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+
+    iters, losses = [], []
+    n = 0
+
+    while n<100:
+        y = model(gt_data)
+        loss = criterion(y, gt_onehot_label)
+        # dy_dx = torch.autograd.grad(y, net.parameters())
+        optimizer.zero_grad()
+        loss.backward()  # Backward pass to compute the gradient of loss w.r.t our learnable params.
+        optimizer.step()  # Update params
+        # save the current training information
+        # iters.append(n)
+        # losses.append(float(loss))  # compute average loss
+        n += 1
+        if n % 100 == 0:
+            print("Iteration: {0} Loss: {1} ".format(n, loss))
+
+    ########################################
+
 
     # compute original gradient
-    pred = net(gt_data)
+    pred = model(gt_data)
     y = criterion(pred, gt_onehot_label)
-    dy_dx = torch.autograd.grad(y, net.parameters())
+    dy_dx = torch.autograd.grad(y, model.parameters())
 
     original_dy_dx = list((_.detach().clone() for _ in dy_dx))
     #### adding noise!! ####
     #original_dy_dx = [w_layer + torch.normal(mean = 0, std= 0.01,size = w_layer.shape) for w_layer in original_dy_dx]
-
+    #original_dy_dx = [w_layer+np.random.laplace(0,0.01,w_layer.shape) for w_layer in original_dy_dx]
     # generate dummy data and label
     dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
     dummy_label = torch.randn(gt_onehot_label.size()).to(device).requires_grad_(True)
@@ -75,14 +98,18 @@ def test_image(img_index):
 
 
     history = []
-    for iters in range(num_of_iterations):
+    current_loss = torch.Tensor([1])
+    iters = 0
+    #for iters in range(num_of_iterations):
+    while (current_loss.item()>0.001 and iters < 500):
+
         def closure():
             optimizer.zero_grad()
 
-            dummy_pred = net(dummy_data)
+            dummy_pred = model(dummy_data)
             dummy_onehot_label = F.softmax(dummy_label, dim=-1)
             dummy_loss = criterion(dummy_pred, dummy_onehot_label)
-            dummy_dy_dx = torch.autograd.grad(dummy_loss, net.parameters(), create_graph=True)
+            dummy_dy_dx = torch.autograd.grad(dummy_loss, model.parameters(), create_graph=True)
 
             grad_diff = 0
             for gx, gy in zip(dummy_dy_dx, original_dy_dx):
@@ -96,13 +123,15 @@ def test_image(img_index):
             current_loss = closure()
             print(iters, "%.4f" % current_loss.item())
             history.append(tt(dummy_data[0].cpu()))
+        iters = iters + 1
 
     plt.figure(figsize=(12, 8))
-    for i in range(30):
-        plt.subplot(3, 10, i + 1)
+    for i in range(round(iters/10)):
+        plt.subplot(int(np.ceil(num_of_iterations/100)), 10, i + 1)
         plt.imshow(history[i])
         plt.title("iter=%d" % (i * 10))
         plt.axis('off')
+
 
 # l = []
 # for i in range(30):
