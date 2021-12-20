@@ -46,7 +46,7 @@ def noise_function(original_dy_dx,epsilon):
         return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
     return original_dy_dx
 
-def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x: x, learning_epoches = 0, epsilon=0.1):
+def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches = 0, epsilon=0.1):
 
 
     gt_data = tp(dst[img_index][0]).to(device)
