@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.autograd import grad
 import torchvision
 from torchvision import models, datasets, transforms
-
+from
 
 def weights_init(m):
     if hasattr(m, "weight"):
@@ -155,4 +155,73 @@ def ResNet101():
 
 def ResNet152():
     return ResNet(Bottleneck, [3,8,36,3])
+
+def test_nn(self):
+    model.eval()
+    correct = 0
+    test_loss = 0
+    accuracy_list = []
+
+    for batch_idx, (data, label) in enumerate(test_loader):
+        # send to device
+        data, label = data.to(device), label.to(device)
+        try:
+            onehot_label = label_to_onehot(label, num_classes=100)
+        except:
+            continue
+
+        output = model(data)
+        test_loss = + criterion(output, onehot_label)
+
+        pred = output.data.max(1, keepdim=True)[1]
+        correct += pred.eq(label.data).cpu().sum().item()
+
+    test_loss /= len(test_loader.dataset)
+    accuracy = 100. * correct / len(test_loader.dataset)
+    accuracy_list.append(accuracy)
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct,
+                                                                                 len(test_loader.dataset),
+                                                                                 accuracy))
+
+def train_nn(self, epoch_num=3):
+    model.train()
+    # optimizer = torch.optim.LBFGS(model.parameters(), lr=0.0001)
+
+    for epoch in range(epoch_num):
+        correct = 0
+        n = 0
+        train_loss = 0
+        accuracy_list = []
+
+        for batch_idx, (data, label) in enumerate(train_loader):
+            # send to device
+            data, label = data.to(device), label.to(device)
+            try:
+                onehot_label = label_to_onehot(label, num_classes=100)
+            except:
+                continue
+
+            optimizer.zero_grad()
+            output = model(data)
+            train_loss = + criterion(output, onehot_label)
+            train_loss.backward()
+            optimizer.step()
+
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(label.data).cpu().sum().item()
+
+            if batch_idx % 100 == 0:
+                print(
+                    'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                        epoch, batch_idx * len(data),
+                        len(train_loader.dataset),
+                               100. * batch_idx / len(train_loader),
+                        train_loss.item()))
+
+        train_loss /= len(train_loader.dataset)
+        accuracy = 100. * correct / len(train_loader.dataset)
+        accuracy_list.append(accuracy)
+        print(
+            '\nTrain set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+                train_loss, correct, len(train_loader.dataset), accuracy))
 

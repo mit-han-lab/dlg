@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
 import argparse
 import numpy as np
-from pprint import pprint
 
 from PIL import Image
 import matplotlib.pyplot as plt
 
 import torch
 from torch import optim
-import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import grad
 import torchvision
-from torchvision import models, datasets, transforms
+from torchvision import datasets, transforms
 print(torch.__version__, torchvision.__version__)
 
 from utils import label_to_onehot, cross_entropy_for_onehot
@@ -31,14 +28,24 @@ if torch.cuda.is_available():
     device = "cuda"
 print("Running on %s" % device)
 
-dst = datasets.CIFAR100("~/.torch", download=True)
+dst = datasets.CIFAR10("~/.torch", download=True)
 tp = transforms.ToTensor()
 tt = transforms.ToPILImage()
 
 img_index = args.index
 
 
-def test_image(img_index,learning_iterations = 0,epsilon = 0):
+def test_image(img_index,train_loader=None,test_loader=None,learning_epoches = 0,epsilon = 0):
+    if (train_loader == None and learning_epoches > 0):
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10("~/.torch", train=True, download=True,
+                              transform=transforms.Compose(
+                                  [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()
+                                   ])), batch_size=64, shuffle=True)
+    if (test_loader == None and learning_epoches > 0):
+        test_loader =  torch.utils.data.DataLoader(
+                  datasets.CIFAR10("~/.torch", train=False, download=True,
+                  transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])), batch_size=64, shuffle=True)
     gt_data = tp(dst[img_index][0]).to(device)
     if len(args.image) > 1:
         gt_data = Image.open(args.image)
@@ -50,7 +57,7 @@ def test_image(img_index,learning_iterations = 0,epsilon = 0):
 
     # plt.imshow(tt(gt_data[0].cpu()))
 
-    from models.vision import LeNet, weights_init
+    from dlg.vision import LeNet, weights_init
     model = LeNet().to(device)
 
 
@@ -58,27 +65,12 @@ def test_image(img_index,learning_iterations = 0,epsilon = 0):
 
     model.apply(weights_init)
     criterion = cross_entropy_for_onehot
-    #################### Train ####################
-    optimizer = optim.Adam(model.parameters(), lr=0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    #################### Train & Test ####################
+    model.train_nn(train_loader=train_loader, optimizer=optimizer, criterion=criterion,  epoch_num=learning_epoches,test_loader=test_loader)
+    model.test_nn(test_loader,criterion)
 
-    iters, losses = [], []
-    n = 0
-
-    while n<learning_iterations:
-        y = model(gt_data)
-        loss = criterion(y, gt_onehot_label)
-        # dy_dx = torch.autograd.grad(y, net.parameters())
-        optimizer.zero_grad()
-        loss.backward()  # Backward pass to compute the gradient of loss w.r.t our learnable params.
-        optimizer.step()  # Update params
-        # save the current training information
-        # iters.append(n)
-        # losses.append(float(loss))  # compute average loss
-        n += 1
-        if n % 100 == 0:
-            print("Iteration: {0} Loss: {1} ".format(n, loss))
-
-    ########################################
+    ######################################################
     # compute original gradient
     pred = model(gt_data)
     y = criterion(pred, gt_onehot_label)
@@ -88,8 +80,9 @@ def test_image(img_index,learning_iterations = 0,epsilon = 0):
     #### adding noise!! ####
     #original_dy_dx = [w_layer + torch.normal(mean = 0, std= 0.01,size = w_layer.shape) for w_layer in original_dy_dx]
     #original_dy_dx = [w_layer+np.random.laplace(0,epsilon,w_layer.shape) for w_layer in original_dy_dx]
-    laplace_obj = Laplace(loc=0, scale=epsilon)
-    original_dy_dx = [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
+    if (epsilon >0):
+        laplace_obj = Laplace(loc=0, scale=epsilon)
+        original_dy_dx = [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
 
     # generate dummy data and label
     dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
@@ -146,13 +139,23 @@ def test_image(img_index,learning_iterations = 0,epsilon = 0):
 image_number_list = [random.randrange(1, 1000, 1) for i in range(5)]
 epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
 print("chosen images: {0}".format(image_number_list))
-
+from vision import LeNet
 def run_dlg_tests(image_number_list,epsilon_list):
     plt.xscale("log")
     loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
+    train_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10("~/.torch", train=True, download=True,
+                          transform=transforms.Compose(
+                              [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()
+                               ])), batch_size=LeNet.BATCH_SIZE, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10("~/.torch", train=False, download=True,
+                          transform=transforms.Compose(
+                              [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
+        batch_size=LeNet.BATCH_SIZE, shuffle=True)
     for i,epsilon in enumerate(epsilon_list):
         for j,n in enumerate(image_number_list):
-            loss_per_epsilon_matrix[i, j] = test_image(n, learning_iterations=0, epsilon=epsilon)
+            loss_per_epsilon_matrix[i, j] = test_image(n,train_loader=train_loader,test_loader=test_loader ,learning_epoches=0, epsilon=epsilon)
             #loss_per_epsilon_matrix[i, j] = i+j
         print("epsilon:{0} loss values:{1}".format(epsilon,loss_per_epsilon_matrix[i]))
     with open('../output/epsilon_mat.npy', 'wb') as f:
@@ -167,6 +170,8 @@ def run_dlg_tests(image_number_list,epsilon_list):
 
 #print(test_image(30, learning_iterations=0, epsilon=0.01))
 
-run_dlg_tests(image_number_list,epsilon_list)
+# run_dlg_tests(image_number_list,epsilon_list)
+
+test_image(30,learning_epoches=50, epsilon=0)
 plt.show()
 
