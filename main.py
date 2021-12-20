@@ -15,12 +15,18 @@ print(torch.__version__, torchvision.__version__)
 from utils import label_to_onehot, cross_entropy_for_onehot
 import random
 from torch.distributions.laplace import Laplace
+from dlg.vision import LeNet, weights_init
+from vision import LeNet
+
 
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
 parser.add_argument('--index', type=int, default="25",
                     help='the index for leaking images on CIFAR.')
 parser.add_argument('--image', type=str,default="",
                     help='the path to customized image.')
+parser.add_argument('--dataset', type=str, default="CIFAR10",
+                    help='pick between - CIFAR100, CIFAR10.')
+
 args = parser.parse_args()
 num_of_iterations = 500
 device = "cpu"
@@ -28,41 +34,30 @@ if torch.cuda.is_available():
     device = "cuda"
 print("Running on %s" % device)
 
-dst = datasets.CIFAR10("~/.torch", download=True)
+dst = getattr(datasets, args.dataset)("~/.torch", download=True)
 tp = transforms.ToTensor()
 tt = transforms.ToPILImage()
 
 img_index = args.index
 
 
-def test_image(img_index,train_loader=None,test_loader=None,learning_epoches = 0,epsilon = 0):
-    if (train_loader == None and learning_epoches > 0):
-        train_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10("~/.torch", train=True, download=True,
-                              transform=transforms.Compose(
-                                  [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()
-                                   ])), batch_size=64, shuffle=True)
-    if (test_loader == None and learning_epoches > 0):
-        test_loader =  torch.utils.data.DataLoader(
-                  datasets.CIFAR10("~/.torch", train=False, download=True,
-                  transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])), batch_size=64, shuffle=True)
+def test_image(img_index, train_loader,test_loader,learning_epoches = 0,epsilon = 0):
+
+
     gt_data = tp(dst[img_index][0]).to(device)
     if len(args.image) > 1:
         gt_data = Image.open(args.image)
         gt_data = tp(gt_data).to(device)
+
     gt_data = gt_data.view(1, *gt_data.size())
     gt_label = torch.Tensor([dst[img_index][1]]).long().to(device)
     gt_label = gt_label.view(1, )
     gt_onehot_label = label_to_onehot(gt_label)
 
-    # plt.imshow(tt(gt_data[0].cpu()))
+    #################### Model Configuration ####################
 
-    from dlg.vision import LeNet, weights_init
     model = LeNet().to(device)
-
-
     torch.manual_seed(1234)
-
     model.apply(weights_init)
     criterion = cross_entropy_for_onehot
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -139,20 +134,19 @@ def test_image(img_index,train_loader=None,test_loader=None,learning_epoches = 0
 image_number_list = [random.randrange(1, 1000, 1) for i in range(5)]
 epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
 print("chosen images: {0}".format(image_number_list))
-from vision import LeNet
 def run_dlg_tests(image_number_list,epsilon_list):
     plt.xscale("log")
     loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
+
+    dataset = getattr(datasets, args.dataset)
     train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10("~/.torch", train=True, download=True,
-                          transform=transforms.Compose(
-                              [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()
-                               ])), batch_size=LeNet.BATCH_SIZE, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10("~/.torch", train=False, download=True,
-                          transform=transforms.Compose(
-                              [transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
+        dataset("~/.torch", train=True, download=True, transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
         batch_size=LeNet.BATCH_SIZE, shuffle=True)
+
+    test_loader = torch.utils.data.DataLoader(
+        dataset("~/.torch", train=False, download=True,transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
+        batch_size=LeNet.BATCH_SIZE, shuffle=True)
+
     for i,epsilon in enumerate(epsilon_list):
         for j,n in enumerate(image_number_list):
             loss_per_epsilon_matrix[i, j] = test_image(n,train_loader=train_loader,test_loader=test_loader ,learning_epoches=0, epsilon=epsilon)
