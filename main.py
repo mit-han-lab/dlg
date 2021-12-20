@@ -15,8 +15,8 @@ print(torch.__version__, torchvision.__version__)
 from utils import label_to_onehot, cross_entropy_for_onehot
 import random
 from torch.distributions.laplace import Laplace
-from dlg.vision import LeNet, weights_init
-from vision import LeNet
+from vision import LeNet, weights_init
+
 
 
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
@@ -40,8 +40,13 @@ tt = transforms.ToPILImage()
 
 img_index = args.index
 
+def noise_function(original_dy_dx,epsilon):
+    if (epsilon >0):
+        laplace_obj = Laplace(loc=0, scale=epsilon)
+        return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
+    return original_dy_dx
 
-def test_image(img_index, train_loader,test_loader,learning_epoches = 0,epsilon = 0):
+def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x: x, learning_epoches = 0, epsilon=0.1):
 
 
     gt_data = tp(dst[img_index][0]).to(device)
@@ -71,13 +76,12 @@ def test_image(img_index, train_loader,test_loader,learning_epoches = 0,epsilon 
     y = criterion(pred, gt_onehot_label)
     dy_dx = torch.autograd.grad(y, model.parameters())
 
-    original_dy_dx = list((_.detach().clone() for _ in dy_dx))
+    original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon)
+
     #### adding noise!! ####
     #original_dy_dx = [w_layer + torch.normal(mean = 0, std= 0.01,size = w_layer.shape) for w_layer in original_dy_dx]
     #original_dy_dx = [w_layer+np.random.laplace(0,epsilon,w_layer.shape) for w_layer in original_dy_dx]
-    if (epsilon >0):
-        laplace_obj = Laplace(loc=0, scale=epsilon)
-        original_dy_dx = [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
+
 
     # generate dummy data and label
     dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
@@ -132,9 +136,14 @@ def test_image(img_index, train_loader,test_loader,learning_epoches = 0,epsilon 
 #plt.hist([7 if (x>5) else x for x in l])
 # plt.plot(l)
 image_number_list = [random.randrange(1, 1000, 1) for i in range(5)]
-epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
+image_number_list = [3767]
+# epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
+epsilon_list = [0]
 print("chosen images: {0}".format(image_number_list))
-def run_dlg_tests(image_number_list,epsilon_list):
+
+import iDLG
+
+def run_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
     plt.xscale("log")
     loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
 
@@ -149,12 +158,13 @@ def run_dlg_tests(image_number_list,epsilon_list):
 
     for i,epsilon in enumerate(epsilon_list):
         for j,n in enumerate(image_number_list):
-            loss_per_epsilon_matrix[i, j] = test_image(n,train_loader=train_loader,test_loader=test_loader ,learning_epoches=0, epsilon=epsilon)
+            extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
+            loss_per_epsilon_matrix[i, j] = extract_img(n,train_loader=train_loader,test_loader=test_loader ,learning_epoches=0, epsilon=epsilon, noise_func=noise_function)
             #loss_per_epsilon_matrix[i, j] = i+j
         print("epsilon:{0} loss values:{1}".format(epsilon,loss_per_epsilon_matrix[i]))
-    with open('../output/epsilon_mat.npy', 'wb') as f:
+    with open('output/epsilon_mat.npy', 'wb') as f:
         np.save(f, loss_per_epsilon_matrix)
-    np.savetxt('../output/epsilon_mat.txt', loss_per_epsilon_matrix, fmt='%1.4e')
+    np.savetxt('output/epsilon_mat.txt', loss_per_epsilon_matrix, fmt='%1.4e')
     plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1))
     plt.title("dlg loss for different levels of laplace noise")
     plt.grid(visible=True,axis="y")
@@ -162,10 +172,11 @@ def run_dlg_tests(image_number_list,epsilon_list):
     plt.xlabel("epsilon")
     plt.ylabel("loss")
 
+
 #print(test_image(30, learning_iterations=0, epsilon=0.01))
 
-# run_dlg_tests(image_number_list,epsilon_list)
+run_dlg_idlg_tests(image_number_list,epsilon_list,algo='iDLG')
 
-test_image(30,learning_epoches=50, epsilon=0)
+#run_dlg(30, learning_epoches=50, epsilon=0)
 plt.show()
 
