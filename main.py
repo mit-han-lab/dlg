@@ -15,7 +15,7 @@ print(torch.__version__, torchvision.__version__)
 from utils import label_to_onehot, cross_entropy_for_onehot
 import random
 from torch.distributions.laplace import Laplace
-from vision import LeNet, weights_init
+from vision import LeNet, CNN, weights_init
 
 
 
@@ -28,7 +28,7 @@ parser.add_argument('--dataset', type=str, default="CIFAR10",
                     help='pick between - CIFAR100, CIFAR10.')
 
 args = parser.parse_args()
-num_of_iterations = 500
+num_of_iterations = 200
 device = "cpu"
 if torch.cuda.is_available():
     device = "cuda"
@@ -67,17 +67,18 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     criterion = cross_entropy_for_onehot
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     #################### Train & Test ####################
-    model.train_nn(train_loader=train_loader, optimizer=optimizer, criterion=criterion,  epoch_num=learning_epoches,test_loader=test_loader)
-    model.test_nn(test_loader,criterion)
-
+    if (learning_epoches >0):
+        model.train_nn(train_loader=train_loader, optimizer=optimizer, criterion=criterion,  epoch_num=learning_epoches,test_loader=test_loader)
+        model.test_nn(test_loader,criterion)
     ######################################################
     # compute original gradient
     pred = model(gt_data)
     y = criterion(pred, gt_onehot_label)
     dy_dx = torch.autograd.grad(y, model.parameters())
-
-    original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon)
-
+    if (epsilon > 0):
+        original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon)
+    else:
+        original_dy_dx = dy_dx
     #### adding noise!! ####
     #original_dy_dx = [w_layer + torch.normal(mean = 0, std= 0.01,size = w_layer.shape) for w_layer in original_dy_dx]
     #original_dy_dx = [w_layer+np.random.laplace(0,epsilon,w_layer.shape) for w_layer in original_dy_dx]
@@ -96,7 +97,8 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     current_loss = torch.Tensor([1])
     iters = 0
     #for iters in range(num_of_iterations):
-    while (current_loss.item()>0.003 and iters < 200):
+    # while (iters < num_of_iterations):
+    while (current_loss.item()>0.003 and iters < num_of_iterations):
 
         def closure():
             optimizer.zero_grad()
@@ -116,9 +118,13 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
         optimizer.step(closure)
         if iters % 10 == 0:
             current_loss = closure()
-        #     print(iters, "%.4f" % current_loss.item())
-        #     history.append(tt(dummy_data[0].cpu()))
+            print(iters, "%.4f" % current_loss.item())
+            history.append(tt(dummy_data[0].cpu()))
         iters = iters + 1
+    plt.figure()
+    plt.imshow(tt(dummy_data[0].cpu()))
+    plt.axis('off')
+
     # plt.figure(figsize=(12, 8))
     # for i in range(round(iters / 10)):
     #     plt.subplot(int(np.ceil(iters / 100)), 10, i + 1)
@@ -135,8 +141,9 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
 # print(l)
 #plt.hist([7 if (x>5) else x for x in l])
 # plt.plot(l)
-image_number_list = [random.randrange(1, 1000, 1) for i in range(5)]
-image_number_list = [3767]
+number_of_images = 5
+image_number_list = [random.randrange(1, 1000, 1) for i in range(number_of_images)]
+#image_number_list = [3767]
 # epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
 epsilon_list = [0]
 print("chosen images: {0}".format(image_number_list))
@@ -146,7 +153,7 @@ import iDLG
 def run_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
     plt.xscale("log")
     loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
-
+    # opening datasets
     dataset = getattr(datasets, args.dataset)
     train_loader = torch.utils.data.DataLoader(
         dataset("~/.torch", train=True, download=True, transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
@@ -156,26 +163,36 @@ def run_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
         dataset("~/.torch", train=False, download=True,transform=transforms.Compose([transforms.Resize(32), transforms.CenterCrop(32), transforms.ToTensor()])),
         batch_size=LeNet.BATCH_SIZE, shuffle=True)
 
+    # run all the tests:
     for i,epsilon in enumerate(epsilon_list):
         for j,n in enumerate(image_number_list):
             extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
-            loss_per_epsilon_matrix[i, j] = extract_img(n,train_loader=train_loader,test_loader=test_loader ,learning_epoches=0, epsilon=epsilon, noise_func=noise_function)
+            loss_per_epsilon_matrix[i, j] = extract_img(n,
+                                                        train_loader=train_loader,
+                                                        test_loader=test_loader,
+                                                        learning_epoches=0,
+                                                        epsilon=epsilon,
+                                                        noise_func=noise_function)
             #loss_per_epsilon_matrix[i, j] = i+j
-        print("epsilon:{0} loss values:{1}".format(epsilon,loss_per_epsilon_matrix[i]))
-    with open('output/epsilon_mat.npy', 'wb') as f:
+        print("epsilon:{0} average loss: {1} loss values:{2}".format(epsilon,np.mean(loss_per_epsilon_matrix[i]),loss_per_epsilon_matrix[i]))
+
+    # save the loss into a matrix
+    with open('../output/epsilon_mat'+algo+'.npy', 'wb') as f:
         np.save(f, loss_per_epsilon_matrix)
-    np.savetxt('output/epsilon_mat.txt', loss_per_epsilon_matrix, fmt='%1.4e')
+    np.savetxt('../output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix, fmt='%1.4e')
+
+    # plot the accuracy
     plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1))
     plt.title("dlg loss for different levels of laplace noise")
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
-    plt.xlabel("epsilon")
+    plt.xlabel("2/epsilon")
     plt.ylabel("loss")
 
 
 #print(test_image(30, learning_iterations=0, epsilon=0.01))
 
-run_dlg_idlg_tests(image_number_list,epsilon_list,algo='iDLG')
+run_dlg_idlg_tests(image_number_list,epsilon_list,algo='DLG')
 
 #run_dlg(30, learning_epoches=50, epsilon=0)
 plt.show()

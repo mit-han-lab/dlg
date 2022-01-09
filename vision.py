@@ -23,6 +23,10 @@ class LeNet(nn.Module):
             act(),
             nn.Conv2d(12, 12, kernel_size=5, padding=5//2, stride=2),
             act(),
+            # nn.Conv2d(12, 12, kernel_size=5, padding=5 // 2, stride=2),
+            # act(),
+            # nn.Conv2d(12, 12, kernel_size=5, padding=5 // 2, stride=2),
+            # act(),
             nn.Conv2d(12, 12, kernel_size=5, padding=5//2, stride=1),
             act(),
         )
@@ -138,7 +142,7 @@ import torch.nn.functional as F
 def weights_init(m):
     if hasattr(m, "weight"):
         m.weight.data.uniform_(-0.5, 0.5)
-    if hasattr(m, "bias"):
+    if hasattr(m, "bias") and m.bias != None:
         m.bias.data.uniform_(-0.5, 0.5)
 
 class BasicBlock(nn.Module):
@@ -159,10 +163,10 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
-        out = F.Sigmoid(self.bn1(self.conv1(x)))
+        out = F.sigmoid(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
-        out = F.Sigmoid(out)
+        out = F.sigmoid(out)
         return out
 
 
@@ -186,11 +190,11 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x):
-        out = F.Sigmoid(self.bn1(self.conv1(x)))
-        out = F.Sigmoid(self.bn2(self.conv2(out)))
+        out = F.sigmoid(self.bn1(self.conv1(x)))
+        out = F.sigmoid(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
         out += self.shortcut(x)
-        out = F.Sigmoid(out)
+        out = F.sigmoid(out)
         return out
 
 
@@ -216,7 +220,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = F.Sigmoid(self.bn1(self.conv1(x)))
+        out = F.sigmoid(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
@@ -243,4 +247,71 @@ def ResNet152():
     return ResNet(Bottleneck, [3,8,36,3])
 
 
+# class CNN(nn.Module):
+#     def __init__(self, input_size, n_feature, output_size):
+#         super(CNN, self).__init__()
+#         self.n_feature = n_feature
+#         self.input_size = input_size
+#         self.fc_size = int((((self.input_size-4)/2)-4)/2)
+#
+#
+#         self.output_size = output_size
+#         self.conv1 = nn.Conv2d(in_channels=3, out_channels=n_feature, kernel_size=5)
+#         self.conv2 = nn.Conv2d(n_feature, n_feature, kernel_size=5)
+#         self.fc1 = nn.Linear(n_feature * self.fc_size * self.fc_size, 50)
+#         self.fc2 = nn.Linear(50, 10)
+#
+#     def forward(self, x, verbose=False):
+#         x = self.conv1(x)
+#         x = F.relu(x)
+#         x = F.max_pool2d(x, kernel_size=2)
+#         x = self.conv2(x)
+#         x = F.relu(x)
+#         x = F.max_pool2d(x, kernel_size=2)
+#         x = x.view(-1, self.n_feature * self.fc_size * self.fc_size)
+#         x = self.fc1(x)
+#         x = F.relu(x)
+#         x = self.fc2(x)
+#         x = F.log_softmax(x, dim=1)
+#         return x
 
+class CNN(nn.Module):
+    def __init__(self, n=4,kernel_size=5):
+        super(CNN, self).__init__()
+        # TODO: complete this method
+        self.cnn1 = nn.Sequential( # 3x32x32
+            nn.Conv2d(in_channels=3,out_channels=n,kernel_size=kernel_size,padding=(kernel_size-1)//2),
+            # nn.BatchNorm2d(n),
+            nn.Sigmoid(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.cnn2 = nn.Sequential(# 3x16x16
+            nn.Conv2d(in_channels=n,out_channels=2*n,kernel_size=kernel_size,padding=(kernel_size-1)//2),
+            # nn.BatchNorm2d(2*n),
+            nn.Sigmoid(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.cnn3 = nn.Sequential(# 3x8x8
+            nn.Conv2d(in_channels=2*n,out_channels=4*n,kernel_size=kernel_size,padding=(kernel_size-1)//2),
+            # nn.BatchNorm2d(4*n),
+            nn.Sigmoid(),
+            nn.MaxPool2d(kernel_size=2)
+        )
+        self.cnn4 = nn.Sequential(# 3x4x4
+            nn.Conv2d(in_channels=4*n,out_channels=8*n,kernel_size=kernel_size,padding=(kernel_size-1)//2),
+            # nn.BatchNorm2d(8*n),
+            nn.Sigmoid(),
+            nn.MaxPool2d(kernel_size=2)
+        )# 3x28x14
+        self.fc1 = nn.Linear(8*n*2*2,100)
+        self.fc2 = nn.Linear(100,10)
+    def forward(self, inp):
+        out = self.cnn1(inp)
+        out = self.cnn2(out)
+        out = self.cnn3(out)
+        out = self.cnn4(out)
+        out = nn.Flatten()(out)
+        out = self.fc1(out)
+        out = nn.functional.relu(out)
+        out = self.fc2(out)
+        return out
