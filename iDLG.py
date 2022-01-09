@@ -89,7 +89,7 @@ save_path = os.path.join(root_path, 'results/iDLG_%s'%dataset).replace('\\', '/'
 
 lr = 1.0
 num_dummy = 1
-Iteration = 300
+Iteration = 200
 num_exp = 1000
 
 use_cuda = torch.cuda.is_available()
@@ -232,7 +232,7 @@ def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y:
             mses.append(torch.mean((dummy_data-gt_data)**2).item())
 
 
-            if iters % int(Iteration / 30) == 0:
+            if iters % int(Iteration / 5) == 0:
                 current_time = str(time.strftime("[%Y-%m-%d %H:%M:%S]", time.localtime()))
                 print(current_time, iters, 'loss = %.8f, mse = %.8f' %(current_loss, mses[-1]))
                 history.append([tp(dummy_data[imidx].cpu()) for imidx in range(num_dummy)])
@@ -240,10 +240,10 @@ def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y:
 
                 for imidx in range(num_dummy):
                     plt.figure(figsize=(12, 8))
-                    plt.subplot(3, 10, 1)
+                    plt.subplot(2, 3, 1)
                     plt.imshow(tp(gt_data[imidx].cpu()))
                     for i in range(min(len(history), 29)):
-                        plt.subplot(3, 10, i + 2)
+                        plt.subplot(2, 3, i + 2)
                         plt.imshow(history[i][imidx])
                         plt.title('iter=%d' % (history_iters[i]))
                         plt.axis('off')
@@ -265,6 +265,7 @@ def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y:
             loss_iDLG = losses
             label_iDLG = label_pred.item()
             mse_iDLG = mses
+        return current_loss
 
 
 
