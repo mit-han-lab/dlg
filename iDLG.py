@@ -145,7 +145,7 @@ net = LeNet(channel=channel, hideen=hidden, num_classes=num_classes)
 net.apply(weights_init)
 
 
-def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches=0, epsilon=0):
+def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches=0, epsilon=0,read_grads=-1,model_number=0):
     global net
     ''' train DLG and iDLG '''
 
@@ -274,7 +274,7 @@ def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y:
     # print('mse_DLG:', mse_DLG[-1], 'mse_iDLG:', mse_iDLG[-1])
     # print('gt_label:', gt_label.detach().cpu().data.numpy(), 'lab_DLG:', label_DLG, 'lab_iDLG:', label_iDLG)
 
-    print('----------------------\n\n')
+    # print('----------------------\n\n')
 
 if __name__ == '__main__':
     run_idlg(net=net, dst=dst, idx=3767)
