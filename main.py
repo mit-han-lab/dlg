@@ -114,8 +114,8 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     current_loss = torch.Tensor([1])
     iters = 0
     #for iters in range(num_of_iterations):
-    # while (iters < num_of_iterations):
-    while (current_loss.item()>0.003 and iters < num_of_iterations):
+    while (iters < num_of_iterations):
+    # while (current_loss.item()>0.001 and iters < num_of_iterations):
 
         def closure():
             optimizer.zero_grad()
@@ -139,7 +139,11 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
             history.append(tt(dummy_data[0].cpu()))
         iters = iters + 1
     plt.figure()
+    plt.subplot(1, 2, 1)
     plt.imshow(tt(dummy_data[0].cpu()))
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(dst[img_index][0])
     plt.axis('off')
 
     # plt.figure(figsize=(12, 8))
@@ -250,16 +254,19 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
 if __name__ == "__main__":
     number_of_images = 1
     # image_number_list = [random.randrange(1, 1000, 1) for i in range(number_of_images)]
-    image_number_list = [508]
+    image_number_list = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,508]
     #image_number_list = [3767]
     # epsilon_list = [0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001]
     epsilon_list = [0]
     print("chosen images: {0}".format(image_number_list))
     check_point_list = [i for i in range(0,400,100)]
     model_number = 813665
-    run_dlg_idlg_tests(image_number_list,check_point_list,model_number,algo='DLG')
+    # run_dlg_idlg_tests(image_number_list,check_point_list,model_number,algo='DLG')
     # run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,algo='DLG')
 
     #run_dlg(30, learning_epoches=50, epsilon=0)
+    K = 25
+    print("image= {0}".format(K))
+    # run_epsilon_dlg_idlg_tests([9],[0],'DLG')
+    run_dlg(K)
     plt.show()
-
