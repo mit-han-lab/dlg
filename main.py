@@ -17,6 +17,13 @@ import random
 from torch.distributions.laplace import Laplace
 from vision import LeNet, CNN, weights_init
 import copy
+import sys
+
+tomer_path = r"C:\Users\tomer\Documents\Final_project_git\federated_learning_uveqfed_dlg\Federated-Learning-Natalie"
+elad_path = r"/Users/elad.sofer/src/Engineering Project/federated_learning_uveqfed_dlg/Federated-Learning-Natalie"
+sys.path.append(elad_path)
+from models import LENETLayer
+from federated_utils import PQclass
 
 
 
@@ -28,6 +35,31 @@ parser.add_argument('--image', type=str,default="",
                     help='the path to customized image.')
 parser.add_argument('--dataset', type=str, default="CIFAR10",
                     help='pick between - CIFAR100, CIFAR10.')
+
+# Federated learning arguments
+parser.add_argument('--R', type=int, default=1,
+                    choices=[1, 2, 4],
+                    help="compression rate (number of bits)")
+parser.add_argument('--epsilon', type=float, default=500,
+                    choices=[1, 5, 10],
+                    help="privacy budget (epsilon)")
+parser.add_argument('--dyn_range', type=float, default=0.5,
+                    help="quantizer dynamic range")
+parser.add_argument('--quantization_type', type=str, default=None,
+                    choices=[None, 'Q', 'DQ', 'SDQ'],
+                    help="whether to perform (Subtractive) (Dithered) Quantization")
+parser.add_argument('--quantizer_type', type=str, default='mid-riser',
+                    choices=['mid-riser', 'mid-tread'],
+                    help="whether to choose mid-riser or mid-tread quantizer")
+parser.add_argument('--privacy_noise', type=str, default='laplace',
+                    choices=[None, 'laplace', 'PPN'],
+                    help="add the signal privacy preserving noise of type laplace or PPN")
+
+
+parser.add_argument('--device', type=str, default='cpu',
+                    choices=['cuda:0', 'cuda:1', 'cpu'],
+                    help="device to use (gpu or cpu)")
+
 
 args = parser.parse_args()
 num_of_iterations = 200
@@ -42,14 +74,24 @@ tt = transforms.ToPILImage()
 
 img_index = args.index
 
+
+
 def noise_function(original_dy_dx,epsilon):
     if (epsilon >0):
         laplace_obj = Laplace(loc=0, scale=epsilon)
         return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
     return original_dy_dx
 
-def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches = 0, epsilon=0.1,read_grads=-1,model_number=0):
+def add_uveqFed(original_dy_dx,_):
+    noised_dy_dx = []
+    # args.epsilon = epsilon
+    noiser = PQclass(args)
+    for g in original_dy_dx:
+        noised_dy_dx.append(noiser.apply_privacy_noise(g))
+    return noised_dy_dx
 
+
+def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches = 0, epsilon=0.1,read_grads=-1,model_number=0):
 
     gt_data = tp(dst[img_index][0]).to(device)
     if len(args.image) > 1:
@@ -82,9 +124,6 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     else: # get the images from the fed-learn
         grad_checkpoint_address = "./fed-ler_checkpoints/grad/checkpoint{0}_{1}.pk".format(model_number,read_grads)
         global_checkpoint_address = "./fed-ler_checkpoints/global/checkpoint{0}_{1}.pk".format(model_number,read_grads)
-        import sys
-        sys.path.append(r"C:\Users\tomer\Documents\Final_project_git\federated_learning_uveqfed_dlg\Federated-Learning-Natalie")
-        from models import LENETLayer
         fed_ler_grad_state_dict = torch.load(grad_checkpoint_address)
 
 
@@ -188,16 +227,16 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
                                                         test_loader=test_loader,
                                                         learning_epoches=0,
                                                         epsilon=epsilon,
-                                                        noise_func=noise_function,
+                                                        noise_func=add_uveqFed,
                                                         read_grads=-1,
                                                         model_number=0)
         #loss_per_epsilon_matrix[i, j] = i+j
         print("epsilon:{0} average loss: {1} loss values:{2}".format(epsilon,np.mean(loss_per_epsilon_matrix[i]),loss_per_epsilon_matrix[i]))
 
     # save the loss into a matrix
-    with open('../output/epsilon_mat'+algo+'.npy', 'wb') as f:
+    with open('output/epsilon_mat'+algo+'.npy', 'wb') as f:
         np.save(f, loss_per_epsilon_matrix)
-    np.savetxt('../output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix, fmt='%1.4e')
+    np.savetxt('output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix, fmt='%1.4e')
 
     # plot the accuracy
     plt.figure()
@@ -230,7 +269,7 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
                                                         test_loader=test_loader,
                                                         learning_epoches=0,
                                                         epsilon=0,
-                                                        noise_func=noise_function,
+                                                        noise_func=add_uveqFed,
                                                         read_grads=iter,
                                                         model_number=model_number)
         #loss_per_epsilon_matrix[i, j] = i+j
@@ -267,6 +306,7 @@ if __name__ == "__main__":
     #run_dlg(30, learning_epoches=50, epsilon=0)
     K = 25
     print("image= {0}".format(K))
-    # run_epsilon_dlg_idlg_tests([9],[0],'DLG')
-    run_dlg(K)
+    run_epsilon_dlg_idlg_tests([9],[0.1],'DLG')
+
+    # run_dlg(K)
     plt.show()
