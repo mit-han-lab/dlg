@@ -45,7 +45,7 @@ parser.add_argument('--epsilon', type=float, default=500,
                     help="privacy budget (epsilon)")
 parser.add_argument('--dyn_range', type=float, default=0.5,
                     help="quantizer dynamic range")
-parser.add_argument('--quantization_type', type=str, default=None,
+parser.add_argument('--quantization_type', type=str, default='SDQ',
                     choices=[None, 'Q', 'DQ', 'SDQ'],
                     help="whether to perform (Subtractive) (Dithered) Quantization")
 parser.add_argument('--quantizer_type', type=str, default='mid-riser',
@@ -82,12 +82,13 @@ def noise_function(original_dy_dx,epsilon):
         return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
     return original_dy_dx
 
-def add_uveqFed(original_dy_dx,_):
+def add_uveqFed(original_dy_dx,epsilon):
     noised_dy_dx = []
-    # args.epsilon = epsilon
+    args.epsilon = epsilon
     noiser = PQclass(args)
     for g in original_dy_dx:
-        noised_dy_dx.append(noiser.apply_privacy_noise(g))
+        out, dither = noiser(g)
+        noised_dy_dx.append(out - dither)
     return noised_dy_dx
 
 
@@ -306,7 +307,8 @@ if __name__ == "__main__":
     #run_dlg(30, learning_epoches=50, epsilon=0)
     K = 25
     print("image= {0}".format(K))
-    run_epsilon_dlg_idlg_tests([9],[0.1],'DLG')
+    run_epsilon_dlg_idlg_tests([9],[5,10, 100, 500, 1000],'DLG')
 
     # run_dlg(K)
     plt.show()
+    pass
