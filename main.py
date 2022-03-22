@@ -246,7 +246,7 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
             'size': 16}
 
     plt.rc('font', **font)
-    plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1))
+    plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1),linewidth=3)
     plt.title("dlg loss for different levels\n of laplace noise")
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
@@ -288,7 +288,12 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
 
     # plot the accuracy
     plt.figure()
-    plt.plot(check_point_list,np.mean(loss_per_iter_matrix,axis=1))
+    font = {
+        'weight': 'bold',
+        'size': 16}
+
+    plt.rc('font', **font)
+    plt.plot(check_point_list,np.mean(loss_per_iter_matrix,axis=1),linewidth=3)
     plt.title("dlg loss for different number of iterations")
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
@@ -314,6 +319,7 @@ if __name__ == "__main__":
     print("image= {0}".format(K))
     # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
     run_epsilon_dlg_idlg_tests([9,10,11,12,13],[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
+    # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
 
     # run_dlg(K)
     plt.show()
