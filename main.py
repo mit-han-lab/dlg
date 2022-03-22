@@ -4,7 +4,6 @@ import numpy as np
 
 from PIL import Image
 import matplotlib.pyplot as plt
-
 import torch
 from torch import optim
 import torch.nn.functional as F
@@ -22,8 +21,8 @@ import sys
 tomer_path = r"C:\Users\tomer\Documents\Final_project_git\federated_learning_uveqfed_dlg\Federated-Learning-Natalie"
 elad_path = r"/Users/elad.sofer/src/Engineering Project/federated_learning_uveqfed_dlg/Federated-Learning-Natalie"
 sys.path.append(elad_path)
-from models import LENETLayer
-from federated_utils import PQclass
+# from models import LENETLayer
+# from federated_utils import PQclass
 
 
 
@@ -76,7 +75,7 @@ img_index = args.index
 
 
 
-def noise_function(original_dy_dx,epsilon):
+def laplace_noise(original_dy_dx,epsilon):
     if (epsilon >0):
         laplace_obj = Laplace(loc=0, scale=epsilon)
         return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
@@ -154,8 +153,8 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     current_loss = torch.Tensor([1])
     iters = 0
     #for iters in range(num_of_iterations):
-    while (iters < num_of_iterations):
-    # while (current_loss.item()>0.001 and iters < num_of_iterations):
+    # while (iters < num_of_iterations):
+    while (current_loss.item()>0.00001 and iters < num_of_iterations):
 
         def closure():
             optimizer.zero_grad()
@@ -178,13 +177,14 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
             print(iters, "%.4f" % current_loss.item())
             history.append(tt(dummy_data[0].cpu()))
         iters = iters + 1
-    plt.figure()
-    plt.subplot(1, 2, 1)
-    plt.imshow(tt(dummy_data[0].cpu()))
-
-    plt.subplot(1, 2, 2)
-    plt.imshow(dst[img_index][0])
-    plt.axis('off')
+    # plt.figure()
+    # plt.subplot(1, 2, 1)
+    # plt.imshow(tt(dummy_data[0].cpu()))
+    # plt.axis('off')
+    #
+    # plt.subplot(1, 2, 2)
+    # plt.imshow(dst[img_index][0])
+    # plt.axis('off')
 
     # plt.figure(figsize=(12, 8))
     # for i in range(round(iters / 10)):
@@ -228,7 +228,7 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
                                                         test_loader=test_loader,
                                                         learning_epoches=0,
                                                         epsilon=epsilon,
-                                                        noise_func=add_uveqFed,
+                                                        noise_func=laplace_noise,
                                                         read_grads=-1,
                                                         model_number=0)
         #loss_per_epsilon_matrix[i, j] = i+j
@@ -241,8 +241,13 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
 
     # plot the accuracy
     plt.figure()
+    font = {
+            'weight': 'bold',
+            'size': 16}
+
+    plt.rc('font', **font)
     plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1))
-    plt.title("dlg loss for different levels of laplace noise")
+    plt.title("dlg loss for different levels\n of laplace noise")
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
     plt.xlabel("2/epsilon")
@@ -307,7 +312,8 @@ if __name__ == "__main__":
     #run_dlg(30, learning_epoches=50, epsilon=0)
     K = 25
     print("image= {0}".format(K))
-    run_epsilon_dlg_idlg_tests([9],[5,10, 100, 500, 1000],'DLG')
+    # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
+    run_epsilon_dlg_idlg_tests([9,10,11,12,13],[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
 
     # run_dlg(K)
     plt.show()
