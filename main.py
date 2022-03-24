@@ -2,6 +2,7 @@
 import argparse
 import numpy as np
 
+import iDLG
 from PIL import Image
 import matplotlib.pyplot as plt
 import torch
@@ -21,8 +22,10 @@ import sys
 tomer_path = r"C:\Users\tomer\Documents\Final_project_git\federated_learning_uveqfed_dlg\Federated-Learning-Natalie"
 elad_path = r"/Users/elad.sofer/src/Engineering Project/federated_learning_uveqfed_dlg/Federated-Learning-Natalie"
 sys.path.append(elad_path)
-# from models import LENETLayer
-# from federated_utils import PQclass
+sys.path.append(tomer_path)
+
+from models import LENETLayer
+from federated_utils import PQclass
 
 
 
@@ -36,18 +39,18 @@ parser.add_argument('--dataset', type=str, default="CIFAR10",
                     help='pick between - CIFAR100, CIFAR10.')
 
 # Federated learning arguments
-parser.add_argument('--R', type=int, default=1,
+parser.add_argument('--R', type=int, default=8,
                     choices=[1, 2, 4],
                     help="compression rate (number of bits)")
 parser.add_argument('--epsilon', type=float, default=500,
                     choices=[1, 5, 10],
                     help="privacy budget (epsilon)")
-parser.add_argument('--dyn_range', type=float, default=0.5,
+parser.add_argument('--dyn_range', type=float, default=1,
                     help="quantizer dynamic range")
 parser.add_argument('--quantization_type', type=str, default='SDQ',
                     choices=[None, 'Q', 'DQ', 'SDQ'],
                     help="whether to perform (Subtractive) (Dithered) Quantization")
-parser.add_argument('--quantizer_type', type=str, default='mid-riser',
+parser.add_argument('--quantizer_type', type=str, default='mid-tread',
                     choices=['mid-riser', 'mid-tread'],
                     help="whether to choose mid-riser or mid-tread quantizer")
 parser.add_argument('--privacy_noise', type=str, default='laplace',
@@ -58,6 +61,10 @@ parser.add_argument('--privacy_noise', type=str, default='laplace',
 parser.add_argument('--device', type=str, default='cpu',
                     choices=['cuda:0', 'cuda:1', 'cpu'],
                     help="device to use (gpu or cpu)")
+
+parser.add_argument('--attack', type=str, default='JOPEQ',
+                    choices=['JOPEQ', 'noise_only'],
+                    help="DLG/iDLG attack type ")
 
 
 args = parser.parse_args()
@@ -74,20 +81,22 @@ tt = transforms.ToPILImage()
 img_index = args.index
 
 
-
-def laplace_noise(original_dy_dx,epsilon):
-    if (epsilon >0):
-        laplace_obj = Laplace(loc=0, scale=epsilon)
-        return [w_layer+laplace_obj.sample(w_layer.shape) for w_layer in original_dy_dx]
-    return original_dy_dx
-
 def add_uveqFed(original_dy_dx,epsilon):
     noised_dy_dx = []
     args.epsilon = epsilon
     noiser = PQclass(args)
     for g in original_dy_dx:
-        out, dither = noiser(g)
-        noised_dy_dx.append(out - dither)
+        if args.attack=='JOPEQ':
+            #output, dither = noiser(g)
+            # noised_dy_dx.append(output - dither)
+            output = noiser.apply_quantization(g)
+            noised_dy_dx.append(output)
+
+
+        else:
+            output = noiser.apply_privacy_noise(g)
+            noised_dy_dx.append(output)
+
     return noised_dy_dx
 
 
@@ -177,14 +186,15 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
             print(iters, "%.4f" % current_loss.item())
             history.append(tt(dummy_data[0].cpu()))
         iters = iters + 1
-    # plt.figure()
-    # plt.subplot(1, 2, 1)
-    # plt.imshow(tt(dummy_data[0].cpu()))
-    # plt.axis('off')
-    #
-    # plt.subplot(1, 2, 2)
-    # plt.imshow(dst[img_index][0])
-    # plt.axis('off')
+
+    plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.imshow(tt(dummy_data[0].cpu()))
+    plt.axis('off')
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(dst[img_index][0])
+    plt.axis('off')
 
     # plt.figure(figsize=(12, 8))
     # for i in range(round(iters / 10)):
@@ -204,9 +214,19 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
 # plt.plot(l)
 
 
-import iDLG
+
 
 def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
+    """
+
+    Args:
+        image_number_list:
+        epsilon_list:
+        algo:
+
+    Returns:
+
+    """
     plt.xscale("log")
     loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
     # opening datasets
@@ -221,14 +241,16 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
 
     # run all the tests:
     for i,epsilon in enumerate(epsilon_list):
+        print("#### epsilon ")
         for j,n in enumerate(image_number_list):
             extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
+
             loss_per_epsilon_matrix[i, j] = extract_img(n,
                                                         train_loader=train_loader,
                                                         test_loader=test_loader,
                                                         learning_epoches=0,
                                                         epsilon=epsilon,
-                                                        noise_func=laplace_noise,
+                                                        noise_func=add_uveqFed,
                                                         read_grads=-1,
                                                         model_number=0)
         #loss_per_epsilon_matrix[i, j] = i+j
@@ -241,13 +263,11 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
 
     # plot the accuracy
     plt.figure()
-    font = {
-            'weight': 'bold',
-            'size': 16}
+    font = {'weight': 'bold','size': 16}
 
     plt.rc('font', **font)
     plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1),linewidth=3)
-    plt.title("dlg loss for different levels\n of laplace noise")
+    plt.title("{0} loss attack type {1} for various levels of noise levels".format(algo, args.attack))
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
     plt.xlabel("2/epsilon")
@@ -294,7 +314,7 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
 
     plt.rc('font', **font)
     plt.plot(check_point_list,np.mean(loss_per_iter_matrix,axis=1),linewidth=3)
-    plt.title("dlg loss for different number of iterations")
+    plt.title("{0} loss attack type {1}".format(algo, args.attack))
     plt.grid(visible=True,axis="y")
     plt.grid(visible=True,which='minor')
     plt.xlabel("iter")
@@ -318,7 +338,11 @@ if __name__ == "__main__":
     K = 25
     print("image= {0}".format(K))
     # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
-    run_epsilon_dlg_idlg_tests([9,10,11,12,13],[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
+    # imagen ids, epsilon list,
+    epsilon_lst = [10000000]
+    img_lst = [9,10,11,12,13]
+    # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
+    run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst,'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
 
     # run_dlg(K)
