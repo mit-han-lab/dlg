@@ -36,7 +36,7 @@ parser.add_argument('--dataset', type=str, default="CIFAR10",
                     help='pick between - CIFAR100, CIFAR10.')
 
 # Federated learning arguments
-parser.add_argument('--R', type=int, default=8,
+parser.add_argument('--R', type=int, default=16,
                     choices=[1, 2, 4],
                     help="compression rate (number of bits)")
 parser.add_argument('--epsilon', type=float, default=500,
@@ -50,6 +50,7 @@ parser.add_argument('--quantization_type', type=str, default='SDQ',
 parser.add_argument('--quantizer_type', type=str, default='mid-tread',
                     choices=['mid-riser', 'mid-tread'],
                     help="whether to choose mid-riser or mid-tread quantizer")
+
 parser.add_argument('--privacy_noise', type=str, default='laplace',
                     choices=[None, 'laplace', 'PPN'],
                     help="add the signal privacy preserving noise of type laplace or PPN")
@@ -58,7 +59,7 @@ parser.add_argument('--device', type=str, default='cpu',
                     choices=['cuda:0', 'cuda:1', 'cpu'],
                     help="device to use (gpu or cpu)")
 
-parser.add_argument('--attack', type=str, default='quantization',
+parser.add_argument('--attack', type=str, default='JOPEQ',
                     choices=['JOPEQ', 'noise_only', 'quantization'],
                     help="DLG/iDLG attack type ")
 args = parser.parse_args()
@@ -194,12 +195,12 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     plt.imshow(dst[img_index][0])
     plt.axis('off')
 
-    # plt.figure(figsize=(12, 8))
-    # for i in range(round(iters / 10)):
-    #     plt.subplot(int(np.ceil(iters / 100)), 10, i + 1)
-    #     plt.imshow(history[i])
-    #     plt.title("iter=%d" % (i * 10))
-    #     plt.axis('off')
+    plt.figure(figsize=(12, 8))
+    for i in range(round(iters / 10)):
+        plt.subplot(int(np.ceil(iters / 100)), 10, i + 1)
+        plt.imshow(history[i])
+        plt.title("iter=%d" % (i * 10))
+        plt.axis('off')
     return current_loss.item()
 
 
@@ -256,23 +257,25 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
             #loss_per_epsilon_matrix[i, j] = i+j
             print("bit_rate: {0} epsilon:{1} average loss: {2} loss values:{3}".format(bit_rate, epsilon,np.mean(loss_per_epsilon_matrix[k][i]),loss_per_epsilon_matrix[k][i]))
 
-    # save the loss into a matrix
-    with open('output/epsilon_mat'+algo+'.npy', 'wb') as f:
-        np.save(f, loss_per_epsilon_matrix)
-    np.savetxt('output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix, fmt='%1.4e')
+    # # save the loss into a matrix
 
-    # plot the accuracy
-    plt.figure()
-    font = {'weight': 'bold','size': 16}
+    #     np.save(f, loss_per_epsilon_matrix[0,:,:])
+    # np.savetxt('output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix[0,:,:], fmt='%1.4e')
+    # with open('output/TOTAL_MAT'+algo+'.npy', 'wb') as f:
+    #     pickle.dump(loss_per_epsilon_matrix, f)
 
-    plt.rc('font', **font)
-    plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1),linewidth=3)
-    plt.title("{0} loss attack type {1} for various levels of noise levels".format(algo, args.attack))
-    plt.grid(visible=True,axis="y")
-    plt.grid(visible=True,which='minor')
-    plt.xlabel("2/epsilon")
-    plt.ylabel("loss")
-
+    # # plot the accuracy
+    # plt.figure()
+    # font = {'weight': 'bold','size': 16}
+    #
+    # plt.rc('font', **font)
+    # plt.plot(epsilon_list,np.mean(loss_per_epsilon_matrix,axis=1),linewidth=3)
+    # plt.title("{0} loss attack type {1} for various levels of noise levels".format(algo, args.attack))
+    # plt.grid(visible=True,axis="y")
+    # plt.grid(visible=True,which='minor')
+    # plt.xlabel("2/epsilon")
+    # plt.ylabel("loss")
+import pickle
 def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DLG'):
     plt.xscale("log")
     loss_per_iter_matrix = np.zeros([len(check_point_list),len(image_number_list)])
@@ -301,10 +304,10 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
         #loss_per_epsilon_matrix[i, j] = i+j
         print("iter:{0} average loss: {1} loss values:{2}".format(iter,np.mean(loss_per_iter_matrix[i]),loss_per_iter_matrix[i]))
 
-    # save the loss into a matrix
-    with open('../output/loss_mat'+algo+'.npy', 'wb') as f:
-        np.save(f, loss_per_iter_matrix)
-    np.savetxt('../output/loss_mat'+algo+'.txt', loss_per_iter_matrix, fmt='%1.4e')
+    # # save the loss into a matrix
+    # with open('../output/loss_mat'+algo+'.npy', 'wb') as f:
+    #     np.save(f, loss_per_iter_matrix)
+    # np.savetxt('../output/loss_mat'+algo+'.txt', loss_per_iter_matrix, fmt='%1.4e')
 
     # plot the accuracy
     plt.figure()
@@ -341,13 +344,49 @@ if __name__ == "__main__":
     print("image= {0}".format(K))
     # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
     # imagen ids, epsilon list,
-    epsilon_lst = [10,100,1000,10000,100000]
-    bit_rate_lst = [8]
-    img_lst = [9,10,11,13]
+    epsilon_lst = [2500,10000]
+    bit_rate_lst = [64]
+
+    img_lst = [9]
     # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
-    run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst,bit_rate_lst=bit_rate_lst, algo=  'DLG')
+    run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst, bit_rate_lst=bit_rate_lst, algo=  'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
 
     # run_dlg(K)
     plt.show()
     pass
+
+
+
+
+# plt.figure()
+# font = {'weight': 'bold','size': 16}
+# plt.rc('font', **font)
+# bit_rate_lst = [2,4,8,16,32,64,128]
+# with open("/Users/elad.sofer/src/Engineering Project/dlg/output/epsilon_mat_quant_onlyDLG.npy", "rb") as fd:
+#     mat = np.load(fd)
+#
+#     plt.plot(bit_rate_lst[:6], np.mean(mat[:6],axis=1), 'r-*')
+#     # plt.xscale("log")
+#
+#     plt.title("Quantization only DLG attack vs. compression rate")
+#     plt.grid(visible=True,axis="y")
+#     plt.grid(visible=True,which='minor')
+#     plt.xlabel("compression rate (#bit number per level)")
+#     plt.ylabel("loss")
+#
+#     bit_rate_lst = [2, 4, 8, 16, 32, 64, 128
+#                     ]
+# with open(
+#         "/Users/elad.sofer/src/Engineering Project/dlg/output/epsilon_mat_DITH_QUANTDLG.npy",
+#         "rb") as fd:
+#     mat = np.load(fd)
+#
+#     plt.plot(epsilon_lst, np.mean(mat[:5], axis=1), '-*', linewidth=0.5)
+#     plt.xscale("log")
+#
+#     plt.title("JoPEQ DLG attack vs. noise levels")
+#     plt.grid(visible=True, axis="y")
+#     plt.grid(visible=True, which='minor')
+#     plt.xlabel("2/epsilon")
+#     plt.ylabel("loss")
