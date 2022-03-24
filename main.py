@@ -27,13 +27,10 @@ sys.path.append(tomer_path)
 from models import LENETLayer
 from federated_utils import PQclass
 
-
-
-
 parser = argparse.ArgumentParser(description='Deep Leakage from Gradients.')
 parser.add_argument('--index', type=int, default="25",
                     help='the index for leaking images on CIFAR.')
-parser.add_argument('--image', type=str,default="",
+parser.add_argument('--image', type=str, default="",
                     help='the path to customized image.')
 parser.add_argument('--dataset', type=str, default="CIFAR10",
                     help='pick between - CIFAR100, CIFAR10.')
@@ -57,17 +54,15 @@ parser.add_argument('--privacy_noise', type=str, default='laplace',
                     choices=[None, 'laplace', 'PPN'],
                     help="add the signal privacy preserving noise of type laplace or PPN")
 
-
 parser.add_argument('--device', type=str, default='cpu',
                     choices=['cuda:0', 'cuda:1', 'cpu'],
                     help="device to use (gpu or cpu)")
 
-parser.add_argument('--attack', type=str, default='JOPEQ',
-                    choices=['JOPEQ', 'noise_only'],
+parser.add_argument('--attack', type=str, default='quantization',
+                    choices=['JOPEQ', 'noise_only', 'quantization'],
                     help="DLG/iDLG attack type ")
-
-
 args = parser.parse_args()
+
 num_of_iterations = 200
 device = "cpu"
 if torch.cuda.is_available():
@@ -81,26 +76,29 @@ tt = transforms.ToPILImage()
 img_index = args.index
 
 
-def add_uveqFed(original_dy_dx,epsilon):
+def add_uveqFed(original_dy_dx, epsilon, bit_rate):
     noised_dy_dx = []
     args.epsilon = epsilon
+    args.R = bit_rate
     noiser = PQclass(args)
     for g in original_dy_dx:
         if args.attack=='JOPEQ':
-            #output, dither = noiser(g)
-            # noised_dy_dx.append(output - dither)
+            output, dither = noiser(g)
+            noised_dy_dx.append(output - dither)
+            # output = noiser.apply_quantization(g)
+            # noised_dy_dx.append(output)
+        elif args.attack=="quantization":
+            # quantization only
             output = noiser.apply_quantization(g)
             noised_dy_dx.append(output)
-
-
-        else:
+        else: # ppn only
             output = noiser.apply_privacy_noise(g)
             noised_dy_dx.append(output)
 
     return noised_dy_dx
 
 
-def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches = 0, epsilon=0.1,read_grads=-1,model_number=0):
+def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_func = lambda x, y, z: x, learning_epoches = 0, epsilon=0.1, bit_rate=1,read_grads=-1,model_number=0):
 
     gt_data = tp(dst[img_index][0]).to(device)
     if len(args.image) > 1:
@@ -141,7 +139,7 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
         # luckily the state dict is saved in exactly the same order as the gradients are so we can easily transfer them
         dy_dx = tuple([fed_ler_grad_state_dict[key] for key in fed_ler_grad_state_dict.keys()])
     if (epsilon > 0):
-        original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon)
+        original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon, bit_rate)
     else:
         original_dy_dx = dy_dx
     #### adding noise!! ####
@@ -216,7 +214,7 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
 
 
 
-def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
+def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo='DLG'):
     """
 
     Args:
@@ -228,7 +226,7 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
 
     """
     plt.xscale("log")
-    loss_per_epsilon_matrix = np.zeros([len(epsilon_list),len(image_number_list)])
+    loss_per_epsilon_matrix = np.zeros([len(bit_rate_lst), len(epsilon_list),len(image_number_list)])
     # opening datasets
     dataset = getattr(datasets, args.dataset)
     train_loader = torch.utils.data.DataLoader(
@@ -240,21 +238,23 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list, algo='DLG'):
         batch_size=LeNet.BATCH_SIZE, shuffle=True)
 
     # run all the tests:
-    for i,epsilon in enumerate(epsilon_list):
-        print("#### epsilon ")
-        for j,n in enumerate(image_number_list):
-            extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
+    for k, bit_rate in enumerate(bit_rate_lst):
+        for i, epsilon in enumerate(epsilon_list):
+            print("#### epsilon {0}".format(epsilon))
+            for j,n in enumerate(image_number_list):
+                extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
 
-            loss_per_epsilon_matrix[i, j] = extract_img(n,
-                                                        train_loader=train_loader,
-                                                        test_loader=test_loader,
-                                                        learning_epoches=0,
-                                                        epsilon=epsilon,
-                                                        noise_func=add_uveqFed,
-                                                        read_grads=-1,
-                                                        model_number=0)
-        #loss_per_epsilon_matrix[i, j] = i+j
-        print("epsilon:{0} average loss: {1} loss values:{2}".format(epsilon,np.mean(loss_per_epsilon_matrix[i]),loss_per_epsilon_matrix[i]))
+                loss_per_epsilon_matrix[k, i, j] = extract_img(n,
+                                                            train_loader=train_loader,
+                                                            test_loader=test_loader,
+                                                            learning_epoches=0,
+                                                            epsilon=epsilon,
+                                                            bit_rate=bit_rate,
+                                                            noise_func=add_uveqFed,
+                                                            read_grads=-1,
+                                                            model_number=0)
+            #loss_per_epsilon_matrix[i, j] = i+j
+            print("bit_rate: {0} epsilon:{1} average loss: {2} loss values:{3}".format(bit_rate, epsilon,np.mean(loss_per_epsilon_matrix[k][i]),loss_per_epsilon_matrix[k][i]))
 
     # save the loss into a matrix
     with open('output/epsilon_mat'+algo+'.npy', 'wb') as f:
@@ -322,6 +322,8 @@ def run_dlg_idlg_tests(image_number_list,check_point_list,model_number, algo='DL
 
 
 if __name__ == "__main__":
+
+
     number_of_images = 1
     # image_number_list = [random.randrange(1, 1000, 1) for i in range(number_of_images)]
     image_number_list = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,508]
@@ -339,10 +341,11 @@ if __name__ == "__main__":
     print("image= {0}".format(K))
     # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
     # imagen ids, epsilon list,
-    epsilon_lst = [10000000]
-    img_lst = [9,10,11,12,13]
+    epsilon_lst = [10,100,1000,10000,100000]
+    bit_rate_lst = [8]
+    img_lst = [9,10,11,13]
     # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
-    run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst,'DLG')
+    run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst,bit_rate_lst=bit_rate_lst, algo=  'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
 
     # run_dlg(K)

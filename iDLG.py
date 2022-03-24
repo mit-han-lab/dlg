@@ -145,7 +145,7 @@ net = LeNet(channel=channel, hideen=hidden, num_classes=num_classes)
 net.apply(weights_init)
 
 
-def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches=0, epsilon=0,read_grads=-1,model_number=0):
+def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y: x, learning_epoches=0, epsilon=0, bit_rate=1, read_grads=-1,model_number=0):
     global net
     ''' train DLG and iDLG '''
 
@@ -182,7 +182,7 @@ def run_idlg(idx, train_loader=None, test_loader=None, noise_func = lambda x, y:
 
         dy_dx = torch.autograd.grad(y, net.parameters())
 
-        original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon)
+        original_dy_dx = noise_func(list((_.detach().clone() for _ in dy_dx)), epsilon, bit_rate)
 
         # generate dummy data and label
         dummy_data = torch.randn(gt_data.size()).to(device).requires_grad_(True)
