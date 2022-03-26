@@ -261,8 +261,9 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
 
     #     np.save(f, loss_per_epsilon_matrix[0,:,:])
     # np.savetxt('output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix[0,:,:], fmt='%1.4e')
-    # with open('output/TOTAL_MAT'+algo+'.npy', 'wb') as f:
-    #     pickle.dump(loss_per_epsilon_matrix, f)
+
+    with open('output/TOTAL_MAT'+algo+'.npy', 'wb') as f:
+        pickle.dump(loss_per_epsilon_matrix, f)
 
     # # plot the accuracy
     # plt.figure()
@@ -347,7 +348,7 @@ if __name__ == "__main__":
     epsilon_lst = [2500,10000]
     bit_rate_lst = [64]
 
-    img_lst = [9]
+    img_lst = [25,26,27,28,29]
     # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
     run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst, bit_rate_lst=bit_rate_lst, algo=  'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
@@ -390,3 +391,25 @@ if __name__ == "__main__":
 #     plt.grid(visible=True, which='minor')
 #     plt.xlabel("2/epsilon")
 #     plt.ylabel("loss")
+
+# plt.figure()
+# font = {'weight': 'bold','size': 16}
+# plt.rc('font', **font)
+# epsilont_lst = [10,100,1000,10000,100000]
+# bit_rate_lst = [2,4,8,16,32]
+# with open("/Users/elad.sofer/src/Engineering Project/dlg/output/TOTAL_MATDLG.npy", "rb") as fd:
+#     mat = pickle.load(fd)
+#
+# for k in range(0,mat.shape[0]):
+#     plt.plot([2/e for e in epsilont_lst], np.mean(mat[k,:,:],axis=1), '-*')
+#     plt.xscale("log")
+#     plt.yscale("log")
+#
+#     plt.title("JoPEQ DLG attack vs. noise levels")
+#     plt.grid(visible=True,axis="y")
+#     plt.grid(visible=True,which='minor')
+#     plt.xlabel("2/epsilon")
+#     plt.ylabel("loss")
+#
+# plt.legend(["4compressionRate", "8compressionRate", "16compressionRate", "32compressionRate"])
+pass
