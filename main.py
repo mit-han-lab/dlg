@@ -243,18 +243,18 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
         for i, epsilon in enumerate(epsilon_list):
             print("#### epsilon {0}".format(epsilon))
             for j,n in enumerate(image_number_list):
-                # extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
-                #
-                # loss_per_epsilon_matrix[k, i, j] = extract_img(n,
-                #                                             train_loader=train_loader,
-                #                                             test_loader=test_loader,
-                #                                             learning_epoches=0,
-                #                                             epsilon=epsilon,
-                #                                             bit_rate=bit_rate,
-                #                                             noise_func=add_uveqFed,
-                #                                             read_grads=-1,
-                #                                             model_number=0)
-                loss_per_epsilon_matrix[k,i, j] = k+i+j
+                extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
+
+                loss_per_epsilon_matrix[k, i, j] = extract_img(n,
+                                                            train_loader=train_loader,
+                                                            test_loader=test_loader,
+                                                            learning_epoches=0,
+                                                            epsilon=epsilon,
+                                                            bit_rate=bit_rate,
+                                                            noise_func=add_uveqFed,
+                                                            read_grads=-1,
+                                                            model_number=0)
+                # loss_per_epsilon_matrix[k,i, j] = k+i+j
             print("bit_rate: {0} epsilon:{1} average loss: {2} loss values:{3}".format(bit_rate, epsilon,np.mean(loss_per_epsilon_matrix[k][i]),loss_per_epsilon_matrix[k][i]))
 
     # # save the loss into a matrix
