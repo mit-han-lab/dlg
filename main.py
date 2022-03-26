@@ -243,18 +243,18 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
         for i, epsilon in enumerate(epsilon_list):
             print("#### epsilon {0}".format(epsilon))
             for j,n in enumerate(image_number_list):
-                extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
-
-                loss_per_epsilon_matrix[k, i, j] = extract_img(n,
-                                                            train_loader=train_loader,
-                                                            test_loader=test_loader,
-                                                            learning_epoches=0,
-                                                            epsilon=epsilon,
-                                                            bit_rate=bit_rate,
-                                                            noise_func=add_uveqFed,
-                                                            read_grads=-1,
-                                                            model_number=0)
-            #loss_per_epsilon_matrix[i, j] = i+j
+                # extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
+                #
+                # loss_per_epsilon_matrix[k, i, j] = extract_img(n,
+                #                                             train_loader=train_loader,
+                #                                             test_loader=test_loader,
+                #                                             learning_epoches=0,
+                #                                             epsilon=epsilon,
+                #                                             bit_rate=bit_rate,
+                #                                             noise_func=add_uveqFed,
+                #                                             read_grads=-1,
+                #                                             model_number=0)
+                loss_per_epsilon_matrix[k,i, j] = k+i+j
             print("bit_rate: {0} epsilon:{1} average loss: {2} loss values:{3}".format(bit_rate, epsilon,np.mean(loss_per_epsilon_matrix[k][i]),loss_per_epsilon_matrix[k][i]))
 
     # # save the loss into a matrix
@@ -345,10 +345,10 @@ if __name__ == "__main__":
     print("image= {0}".format(K))
     # [0.1, 0.08, 0.06, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001]
     # imagen ids, epsilon list,
-    epsilon_lst = [2500,10000]
-    bit_rate_lst = [64]
+    epsilon_lst = [10,33,100,333,1000,3333,10000,100000]
+    bit_rate_lst = [4,8,16,32]
 
-    img_lst = [25,26,27,28,29]
+    img_lst = list(range(30,45))
     # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
     run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst, bit_rate_lst=bit_rate_lst, algo=  'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
