@@ -195,12 +195,12 @@ def run_dlg(img_index, model=None, train_loader=None, test_loader=None, noise_fu
     plt.imshow(dst[img_index][0])
     plt.axis('off')
 
-    plt.figure(figsize=(12, 8))
-    for i in range(round(iters / 10)):
-        plt.subplot(int(np.ceil(iters / 100)), 10, i + 1)
-        plt.imshow(history[i])
-        plt.title("iter=%d" % (i * 10))
-        plt.axis('off')
+    # plt.figure(figsize=(12, 8))
+    # for i in range(round(iters / 10)):
+    #     plt.subplot(int(np.ceil(iters / 100)), 10, i + 1)
+    #     plt.imshow(history[i])
+    #     plt.title("iter=%d" % (i * 10))
+    #     plt.axis('off')
     return current_loss.item()
 
 
@@ -241,8 +241,8 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
     # run all the tests:
     for k, bit_rate in enumerate(bit_rate_lst):
         for i, epsilon in enumerate(epsilon_list):
-            print("#### epsilon {0}".format(epsilon))
             for j,n in enumerate(image_number_list):
+
                 extract_img = run_dlg if algo == 'DLG' else iDLG.run_idlg
 
                 loss_per_epsilon_matrix[k, i, j] = extract_img(n,
@@ -255,6 +255,7 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
                                                             read_grads=-1,
                                                             model_number=0)
                 # loss_per_epsilon_matrix[k,i, j] = k+i+j
+                print("#### image {0} epsilon {1} bitRate {2} loss {3}####".format(j, epsilon, bit_rate,loss_per_epsilon_matrix[k,i,j]))
             print("bit_rate: {0} epsilon:{1} average loss: {2} loss values:{3}".format(bit_rate, epsilon,np.mean(loss_per_epsilon_matrix[k][i]),loss_per_epsilon_matrix[k][i]))
 
     # # save the loss into a matrix
@@ -262,8 +263,8 @@ def run_epsilon_dlg_idlg_tests(image_number_list,epsilon_list,bit_rate_lst, algo
     #     np.save(f, loss_per_epsilon_matrix[0,:,:])
     # np.savetxt('output/epsilon_mat'+algo+'.txt', loss_per_epsilon_matrix[0,:,:], fmt='%1.4e')
 
-    with open('output/TOTAL_MAT'+algo+'.npy', 'wb') as f:
-        pickle.dump(loss_per_epsilon_matrix, f)
+    # with open('output/TOTAL_MAT'+algo+'.npy', 'wb') as f:
+    #     pickle.dump(loss_per_epsilon_matrix, f)
 
     # # plot the accuracy
     # plt.figure()
@@ -349,6 +350,10 @@ if __name__ == "__main__":
     bit_rate_lst = [4,8,16,32]
 
     img_lst = list(range(30,45))
+    epsilon_lst = [333]
+    bit_rate_lst = [16]
+
+    img_lst = [15]
     # run_epsilon_dlg_idlg_tests(,[0.1,0.08,0.06,0.03,0.01,0.003,0.001,0.0003,0.0001],'DLG')
     run_epsilon_dlg_idlg_tests(img_lst, epsilon_lst, bit_rate_lst=bit_rate_lst, algo=  'DLG')
     # run_epsilon_dlg_idlg_tests([9],[0.0003,0.0001],'DLG')
